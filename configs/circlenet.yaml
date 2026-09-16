@@ -1,0 +1,89 @@
+data:
+  scene_index: data/processed/scenes.csv
+  objects_file: data/processed/objects.parquet
+  splits_file: data/processed/splits.json
+  vv_name: VV_dB.tif
+  vh_name: VH_dB.tif
+  nodata_value: -32768.0
+  pixel_size_m: 10.0
+
+normalization:
+  vv: {center: -15.0, scale: 4.0}
+  vh: {center: -22.0, scale: 4.0}
+  fill_value: 0.0
+
+targets:
+  stride: 2
+  heat_radius_px: 3
+  cls_radius_px: 2
+  log_length: true
+  min_confidence: LOW
+
+sampling:
+  patch_size: 512
+  object_centered_fraction: 0.9
+  jitter_px: 128
+  weight_non_vessel: 2.0
+  weight_near_shore: 3.0
+  near_shore_km: 2.0
+  crowd_radius_px: 64
+  epoch_length: 2000 
+
+augmentation:
+  hflip: 0.5
+  vflip: 0.5
+  affine_prob: 0.5
+  max_rotate_deg: 5
+  scale_range: [0.9, 1.1]
+  brightness_db: 1.0
+  contrast_range: [0.9, 1.1]
+  noise_db_std: 0.5
+
+model:
+  encoder: tf_efficientnetv2_s.in21k_ft_in1k
+  pretrained: true
+  decoder_channels: [256, 128, 64, 48]
+  head_channels: 64
+  groupnorm_groups: 8
+  objectness_prior: 0.01
+
+loss:
+  focal_alpha: 2.0
+  focal_beta: 4.0
+  label_smoothing: 0.05
+  w_objectness: 1.0
+  w_offset: 0.001
+  w_length: 0.1
+  w_vessel: 1.0
+  w_entropy: 0.1
+
+train:
+  epochs: 30
+  batch_size: 2
+  accumulate_grad_batches: 4
+  num_workers: 4
+  lr_encoder: 1.0e-4
+  lr_decoder: 5.0e-4
+  weight_decay: 1.0e-2
+  warmup_epochs: 1
+  amp: true
+  grad_clip: 5.0
+  eval_every: 1
+  eval_patches: 64
+  checkpoint_dir: checkpoints/circlenet_lite
+  wandb_project: aegean-dark-vessels
+  seed: 42
+
+decode:
+  peak_kernel: 3
+  objectness_threshold: 0.30
+  vessel_threshold: 0.50
+  max_detections: 20000
+
+inference:
+  tile_size: 1024
+  tile_step: 768
+  flip_tta: true
+
+evaluation:
+  match_distance_m: 200.0

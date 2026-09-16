@@ -1,0 +1,67 @@
+<!--
+  SNAP graph: Sentinel-1 IW GRDH -> Sigma0 VV/VH in dB, terrain corrected, WGS84.
+  Run via: gpt configs/s1_grd_preprocess.xml -Pinput=<S1 .zip or .SAFE> -Poutput=<out.tif>
+  Steps: orbit file -> thermal noise removal -> border noise removal -> calibration (sigma0)
+         -> terrain correction -> linear to dB -> GeoTIFF
+  No speckle filter on purpose: it erases the small bright points we want to detect.
+-->
+<graph id="S1_GRD_ship_preprocess">
+  <version>1.0</version>
+  <node id="Read">
+    <operator>Read</operator>
+    <sources/>
+    <parameters><file>${input}</file></parameters>
+  </node>
+  <node id="Apply-Orbit-File">
+    <operator>Apply-Orbit-File</operator>
+    <sources><sourceProduct refid="Read"/></sources>
+    <parameters>
+      <orbitType>Sentinel Precise (Auto Download)</orbitType>
+      <polyDegree>3</polyDegree>
+      <continueOnFail>true</continueOnFail>
+    </parameters>
+  </node>
+  <node id="ThermalNoiseRemoval">
+    <operator>ThermalNoiseRemoval</operator>
+    <sources><sourceProduct refid="Apply-Orbit-File"/></sources>
+    <parameters><selectedPolarisations>VV,VH</selectedPolarisations><removeThermalNoise>true</removeThermalNoise></parameters>
+  </node>
+  <node id="Remove-GRD-Border-Noise">
+    <operator>Remove-GRD-Border-Noise</operator>
+    <sources><sourceProduct refid="ThermalNoiseRemoval"/></sources>
+    <parameters><selectedPolarisations>VV,VH</selectedPolarisations><borderLimit>500</borderLimit><trimThreshold>0.5</trimThreshold></parameters>
+  </node>
+  <node id="Calibration">
+    <operator>Calibration</operator>
+    <sources><sourceProduct refid="Remove-GRD-Border-Noise"/></sources>
+    <parameters>
+      <selectedPolarisations>VV,VH</selectedPolarisations>
+      <outputSigmaBand>true</outputSigmaBand>
+      <outputGammaBand>false</outputGammaBand>
+      <outputBetaBand>false</outputBetaBand>
+    </parameters>
+  </node>
+  <node id="Terrain-Correction">
+    <operator>Terrain-Correction</operator>
+    <sources><sourceProduct refid="Calibration"/></sources>
+    <parameters>
+      <demName>Copernicus 30m Global DEM</demName>
+      <demResamplingMethod>BILINEAR_INTERPOLATION</demResamplingMethod>
+      <imgResamplingMethod>BILINEAR_INTERPOLATION</imgResamplingMethod>
+      <pixelSpacingInMeter>10.0</pixelSpacingInMeter>
+      <mapProjection>EPSG:32635</mapProjection>
+      <nodataValueAtSea>false</nodataValueAtSea>
+      <saveSelectedSourceBand>true</saveSelectedSourceBand>
+    </parameters>
+  </node>
+  <node id="LinearToFromdB">
+    <operator>LinearToFromdB</operator>
+    <sources><sourceProduct refid="Terrain-Correction"/></sources>
+    <parameters/>
+  </node>
+  <node id="Write">
+    <operator>Write</operator>
+    <sources><sourceProduct refid="LinearToFromdB"/></sources>
+    <parameters><file>${output}</file><formatName>GeoTIFF-BigTIFF</formatName></parameters>
+  </node>
+</graph>
