@@ -1,0 +1,32 @@
+site:
+  out_dir: web/data
+  bbox: [22.0, 34.6, 29.0, 41.0] # lon_min, lat_min, lon_max, lat_max
+  title: Aegean vessel viewer
+
+rules:
+  delay_hours: 72
+  size_floor_m: 30.0
+  aggregate_cell_km: 10.0
+  masks: data/masks/excluded_areas.geojson
+
+chips:
+  # 100x 100 px
+  window_m: 1000.0
+  polarizations: [VH, VV]
+  stretch: sea_relative
+  sea_relative_below_db: 4.0
+  sea_relative_above_db: 20.0
+
+overview:
+  enabled: true
+  max_px: 2048
+  stretch: percentile
+  percentile: [2.0, 98.0]
+
+coastline:
+  source: data/land-polygons-split-4326/land_polygons.shp
+  simplify_deg: [0.0040, 0.0008]
+  min_area_deg2: 0.0000008
+
+retention:
+  keep_days: 120

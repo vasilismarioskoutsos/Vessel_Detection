@@ -1,0 +1,53 @@
+# Deploy web/ to GitHub Pages.
+#
+# This only PUBLISHES. It never runs the model: scenes are gigabytes, runners
+# have no GPU, and the job would time out. Detection and export run on your own
+# machine; this workflow copies the small published files that result.
+#
+# One-time setup: repository Settings -> Pages -> Source: "GitHub Actions".
+
+name: Deploy site
+
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the site has data
+        run: |
+          test -f web/data/manifest.json || {
+            echo "::error::web/data/manifest.json is missing."
+            echo "Run: python scripts/make_sample_site_data.py   (or export_site_data.py)"
+            exit 1
+          }
+          python -c "import json,sys; m=json.load(open('web/data/manifest.json')); \
+            print('passes:', len(m['passes']), '| sample:', m['sample']); \
+            sys.exit(0 if m['passes'] else 1)" || {
+            echo "::error::manifest.json has no passes."; exit 1; }
+          echo "site size: $(du -sh web | cut -f1)"
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+      - id: deploy
+        uses: actions/deploy-pages@v4

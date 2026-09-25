@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aegean Vessel Viewer</title>
+<meta name="description" content="Ship detections from free Sentinel-1 radar imagery over the Aegean Sea, compared against public AIS broadcasts.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<link rel="stylesheet" href="vendor/maplibre-gl.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="top">
+    <span class="brand">AEGEAN VESSEL VIEWER</span>
+    <span class="brand-sub">Sentinel-1 radar ship detection</span>
+    <nav aria-label="Sections">
+      <a href="index.html" aria-current="page">Map</a>
+      <a href="results.html">Results</a>
+      <a href="method.html">Method</a>
+    </nav>
+    <span class="spacer"></span>
+    <span class="chip warn" id="sample-chip" hidden>SAMPLE DATA</span>
+    <span class="chip" id="delay-chip">72 h publication delay</span>
+    <a href="https://github.com/vasilismarioskoutsos/Vessel_Detection" style="font-size:13px;text-decoration:none;color:var(--text-2)">Source</a>
+  </header>
+
+  <div class="body-row">
+
+    <aside class="side">
+      <div class="side-scroll">
+
+        <section>
+          <h2 id="lyr-h">Layers</h2>
+          <div id="layers" role="group" aria-labelledby="lyr-h"></div>
+        </section>
+
+        <section>
+          <h2 id="flt-h">Filters</h2>
+          <div class="field">
+            <div class="field-top">
+              <label for="f-len">Minimum length</label>
+              <output id="f-len-out" for="f-len">0 m</output>
+            </div>
+            <input type="range" id="f-len" min="0" max="150" step="5" value="0">
+          </div>
+          <div class="field">
+            <div class="field-top">
+              <label for="f-conf">Minimum confidence</label>
+              <output id="f-conf-out" for="f-conf">0.00</output>
+            </div>
+            <input type="range" id="f-conf" min="0" max="95" step="5" value="0">
+          </div>
+        </section>
+
+        <section>
+          <h2>This pass</h2>
+          <div class="stats">
+            <div class="stat"><b id="s-total">—</b><span>shown</span></div>
+            <div class="stat"><b id="s-pct" style="color:var(--matched)">—</b><span id="s-pct-l">matched to AIS</span></div>
+            <div class="stat"><b id="s-unm" style="color:var(--unmatched)">—</b><span id="s-unm-l">no AIS received</span></div>
+            <div class="stat"><b id="s-agg">—</b><span>below size floor</span></div>
+          </div>
+          <p style="font-size:11px;line-height:1.6;color:var(--text-3);margin:10px 0 0" id="floor-note"></p>
+        </section>
+
+      </div>
+      <footer>
+        Contains modified Copernicus Sentinel data. Coastlines &copy; OpenStreetMap contributors (ODbL).
+        AIS via aisstream.io. No vessel identities are published.
+      </footer>
+    </aside>
+
+    <main class="map-wrap">
+      <div id="map" role="application" aria-label="Map of radar vessel detections in the Aegean Sea"></div>
+      <p class="sr-only" id="a11y-summary" aria-live="polite"></p>
+
+      <div class="zoomer">
+        <button type="button" id="z-in" aria-label="Zoom in">+</button>
+        <button type="button" id="z-out" aria-label="Zoom out">&minus;</button>
+        <button type="button" id="z-reset" aria-label="Reset view">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 8a6 6 0 1 1 1.8 4.3"/><path d="M2 12.5V8.5h4"/></svg>
+        </button>
+      </div>
+
+      <div class="scalebar"><div id="scale-bar" style="width:110px"></div><span id="scale-label">50 km</span></div>
+
+      <div class="attrib">
+        Sentinel-1 IW GRDH &middot; 10 m<br>
+        <span id="attrib-rules">delayed &middot; masked</span>
+      </div>
+
+      <aside class="detail" id="detail" hidden aria-labelledby="d-kind">
+        <div class="detail-head">
+          <svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true"><circle id="d-dot" cx="7" cy="7" r="5" fill="var(--unmatched)"/></svg>
+          <span class="k" id="d-kind">No AIS received</span>
+          <button type="button" id="d-close" aria-label="Close detection details">
+            <svg width="11" height="11" viewBox="0 0 12 12" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"/></svg>
+          </button>
+        </div>
+        <div class="detail-body">
+          <div class="detail-top">
+            <div id="d-chip-wrap">
+              <img class="chipimg" id="d-chip" alt="Radar image around this detection">
+              <div class="chipcap" id="d-chip-cap">VH</div>
+            </div>
+            <dl id="d-facts"></dl>
+          </div>
+          <h3>Why this reads the way it does</h3>
+          <ul class="reasons" id="d-reasons"></ul>
+        </div>
+      </aside>
+
+      <div class="scrub">
+        <button type="button" id="p-prev" aria-label="Earlier pass">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M7.5 2L3.5 6l4 4"/></svg>
+        </button>
+        <div class="scrub-mid">
+          <div class="scrub-label">
+            <span class="when" id="p-when">—</span>
+            <span id="p-meta"></span>
+            <span class="spacer"></span>
+            <span id="p-range"></span>
+          </div>
+          <div class="track" id="track" role="group" aria-label="Satellite passes"></div>
+        </div>
+        <button type="button" id="p-next" aria-label="Later pass">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4.5 2l4 4-4 4"/></svg>
+        </button>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="vendor/maplibre-gl.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>

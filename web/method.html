@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Method — Aegean Vessel Viewer</title>
+<meta name="description" content="How radar ship detections are produced, what the sensor cannot see, and the rules this site publishes under.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="top">
+  <span class="brand">AEGEAN VESSEL VIEWER</span>
+  <span class="brand-sub">Sentinel-1 radar ship detection</span>
+  <nav aria-label="Sections">
+    <a href="index.html">Map</a>
+    <a href="results.html">Results</a>
+    <a href="method.html" aria-current="page">Method</a>
+  </nav>
+  <span class="spacer"></span>
+  <a href="https://github.com/vasilismarioskoutsos/Vessel_Detection" style="font-size:13px;text-decoration:none;color:var(--text-2)">Source</a>
+</header>
+
+<main class="page">
+  <h1>Method and limitations</h1>
+  <p class="lede">A radar satellite sees ships through cloud and at night, and every large vessel is meant to broadcast where it is. Comparing the two is useful, but the comparison fails in specific, knowable ways. This page states them, because a surveillance tool that hides its failure modes is worse than no tool.</p>
+
+  <section class="card" style="margin-bottom:20px">
+    <h2>Pipeline</h2>
+    <svg viewBox="0 0 1384 238" role="img" style="display:block;width:100%;margin-top:14px">
+      <title>Processing pipeline</title>
+      <desc>Two input lanes, radar scenes and recorded AIS, merge into matching, scoring and publication, which feeds the viewer.</desc>
+      <g font-family="IBM Plex Sans, sans-serif">
+        <rect x="20" y="24" width="170" height="54" rx="7" fill="#15202C" stroke="#2F5C7D" stroke-width="1.2"/>
+        <text x="105" y="47" fill="#9FD0F0" font-size="13" font-weight="500" text-anchor="middle">Sentinel-1 scene</text>
+        <text x="105" y="65" fill="#7C93A8" font-size="11" text-anchor="middle">free, every few days</text>
+        <rect x="215" y="24" width="170" height="54" rx="7" fill="#15202C" stroke="#2F5C7D" stroke-width="1.2"/>
+        <text x="300" y="47" fill="#9FD0F0" font-size="13" font-weight="500" text-anchor="middle">Preprocess</text>
+        <text x="300" y="65" fill="#7C93A8" font-size="11" text-anchor="middle">calibrate, mask land</text>
+        <rect x="410" y="24" width="170" height="54" rx="7" fill="#15202C" stroke="#2F5C7D" stroke-width="1.2"/>
+        <text x="495" y="47" fill="#9FD0F0" font-size="13" font-weight="500" text-anchor="middle">Detect</text>
+        <text x="495" y="65" fill="#7C93A8" font-size="11" text-anchor="middle">CircleNet-lite, local GPU</text>
+        <rect x="20" y="150" width="170" height="54" rx="7" fill="#1E1B2B" stroke="#4A4276" stroke-width="1.2"/>
+        <text x="105" y="173" fill="#B7AEE8" font-size="13" font-weight="500" text-anchor="middle">AIS recorder</text>
+        <text x="105" y="191" fill="#8C86A8" font-size="11" text-anchor="middle">live, running 24/7</text>
+        <rect x="215" y="150" width="170" height="54" rx="7" fill="#1E1B2B" stroke="#4A4276" stroke-width="1.2"/>
+        <text x="300" y="173" fill="#B7AEE8" font-size="13" font-weight="500" text-anchor="middle">Interpolate</text>
+        <text x="300" y="191" fill="#8C86A8" font-size="11" text-anchor="middle">to acquisition instant</text>
+        <rect x="660" y="87" width="170" height="54" rx="7" fill="#1A222C" stroke="#46545F" stroke-width="1.2"/>
+        <text x="745" y="110" fill="#E6ECF2" font-size="13" font-weight="500" text-anchor="middle">Match</text>
+        <text x="745" y="128" fill="#8292A4" font-size="11" text-anchor="middle">Doppler, then assignment</text>
+        <rect x="855" y="87" width="170" height="54" rx="7" fill="#1A222C" stroke="#46545F" stroke-width="1.2"/>
+        <text x="940" y="110" fill="#E6ECF2" font-size="13" font-weight="500" text-anchor="middle">Filter and score</text>
+        <text x="940" y="128" fill="#8292A4" font-size="11" text-anchor="middle">structures, coverage, uptime</text>
+        <rect x="1050" y="87" width="170" height="54" rx="7" fill="#241A0C" stroke="#7A5A2C" stroke-width="1.2"/>
+        <text x="1135" y="110" fill="#F5C68A" font-size="13" font-weight="500" text-anchor="middle">Publish</text>
+        <text x="1135" y="128" fill="#A8905F" font-size="11" text-anchor="middle">delayed, masked, floored</text>
+        <rect x="1245" y="87" width="119" height="54" rx="7" fill="#121820" stroke="#35424F" stroke-width="1.2" stroke-dasharray="4 3"/>
+        <text x="1304" y="110" fill="#9CACBC" font-size="13" font-weight="500" text-anchor="middle">Viewer</text>
+        <text x="1304" y="128" fill="#6D7E8F" font-size="11" text-anchor="middle">GitHub Pages</text>
+      </g>
+      <g stroke="#46545F" stroke-width="1.4" fill="none">
+        <path d="M190 51h19"/><path d="M203 46l7 5-7 5"/>
+        <path d="M385 51h19"/><path d="M398 46l7 5-7 5"/>
+        <path d="M190 177h19"/><path d="M203 172l7 5-7 5"/>
+        <path d="M580 51h40v63h34"/><path d="M648 109l7 5-7 5"/>
+        <path d="M385 177h235v-63h34"/>
+        <path d="M830 114h19"/><path d="M843 109l7 5-7 5"/>
+        <path d="M1025 114h19"/><path d="M1038 109l7 5-7 5"/>
+        <path d="M1220 114h19"/><path d="M1233 109l7 5-7 5"/>
+      </g>
+      <text x="620" y="228" fill="#6D7E8F" font-family="IBM Plex Mono, monospace" font-size="11" text-anchor="middle">everything left of Publish runs on one local machine; only the small published files reach the repository</text>
+    </svg>
+  </section>
+
+  <div class="grid-3">
+
+    <section class="card">
+      <h2>What the radar can and cannot see</h2>
+      <ul class="plain" style="margin-top:14px">
+        <li><span class="mark" style="color:var(--ok)" aria-hidden="true">&#10003;</span><span>Works through cloud and at night. A ship&rsquo;s metal corners bounce the signal straight back, so it appears bright on dark sea.</span></li>
+        <li><span class="mark" style="color:var(--unmatched)" aria-hidden="true">&#9888;</span><span>Pixels are 10&nbsp;m but true resolution is nearer 20&nbsp;m. Boats under roughly 15&ndash;20&nbsp;m are frequently missed altogether.</span></li>
+        <li><span class="mark" style="color:var(--unmatched)" aria-hidden="true">&#9888;</span><span>In strong wind the sea itself brightens, so detection degrades exactly when small vessels are least safe.</span></li>
+        <li><span class="mark" style="color:var(--unmatched)" aria-hidden="true">&#9888;</span><span>A moving ship is imaged away from its true position, by several hundred metres. Corrected before matching, never perfectly.</span></li>
+        <li><span class="mark" style="color:var(--unmatched)" aria-hidden="true">&#9888;</span><span>A pass every few days is a snapshot, not a track. Nothing here shows where a vessel went.</span></li>
+      </ul>
+      <p class="note">Small boats are also carried by people crossing the Aegean. Publishing their positions could put lives at risk, which is why individual points below the size floor are never shown.</p>
+    </section>
+
+    <section class="card">
+      <h2>Rules this site publishes under</h2>
+      <dl class="defs" style="margin-top:14px">
+        <div><dt>Delay</dt><dd>Nothing appears until it is <b id="r-delay">72</b>&nbsp;hours old, which removes any real-time tracking value.</dd></div>
+        <div><dt>Excluded areas</dt><dd id="r-mask">Naval bases, military ports and announced exercise areas are cut before publication.</dd></div>
+        <div><dt>Size floor</dt><dd>Individual detections are shown only at or above <b id="r-floor">30</b>&nbsp;m. Anything smaller appears as a count per <b id="r-cell">10</b>&nbsp;km cell.</dd></div>
+        <div><dt>No identities</dt><dd>Vessel names, MMSI and call signs are never published, even where a match is confident.</dd></div>
+        <div><dt>Wording</dt><dd>A detection is &ldquo;unmatched&rdquo; or &ldquo;no AIS received&rdquo; &mdash; never &ldquo;dark&rdquo;, &ldquo;suspicious&rdquo; or &ldquo;illegal&rdquo;. Most have ordinary explanations.</dd></div>
+      </dl>
+    </section>
+
+    <section class="card">
+      <h2>Sources and credit</h2>
+      <ul class="plain" style="margin-top:14px">
+        <li><div><div style="font-weight:500;margin-bottom:3px">Copernicus Sentinel-1</div><div style="color:var(--text-2)">Radar imagery, free and open. Contains modified Copernicus Sentinel data.</div></div></li>
+        <li><div><div style="font-weight:500;margin-bottom:3px">OpenStreetMap land polygons</div><div style="color:var(--text-2)">Coastline drawing and islet masking, under ODbL. &copy; OpenStreetMap contributors.</div></div></li>
+        <li><div><div style="font-weight:500;margin-bottom:3px">aisstream.io</div><div style="color:var(--text-2)">Live AIS, recorded locally from the day the project started.</div></div></li>
+        <li><div><div style="font-weight:500;margin-bottom:3px">Global Fishing Watch</div><div style="color:var(--text-2)">Used only as an independent benchmark to check this pipeline, never republished as its own output.</div></div></li>
+        <li><div><div style="font-weight:500;margin-bottom:3px">xView3 winning solution</div><div style="color:var(--text-2)">The detector follows Eugene Khvedchenya&rsquo;s point-detection design (MIT licence), simplified to a single model.</div></div></li>
+      </ul>
+      <p class="note">Built by Vasilis Marios Koutsos. Code, configs and the full implementation notes are in the repository.</p>
+    </section>
+  </div>
+</main>
+
+<script>
+fetch('data/manifest.json', { cache: 'no-cache' })
+  .then(function (r) { return r.json(); })
+  .then(function (m) {
+    document.getElementById('r-delay').textContent = m.rules.delay_hours;
+    document.getElementById('r-floor').textContent = m.rules.size_floor_m;
+    document.getElementById('r-cell').textContent = m.rules.aggregate_cell_km;
+    if (!m.rules.masked) {
+      document.getElementById('r-mask').innerHTML =
+        '<b style="color:var(--unmatched)">No exclusion mask is configured.</b> Nothing is being cut on that basis.';
+    }
+  })
+  .catch(function () {});
+</script>
+</body>
+</html>

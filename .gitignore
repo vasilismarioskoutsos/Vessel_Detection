@@ -1,1 +1,14 @@
 .venv
+data/
+checkpoints/
+wandb/
+__pycache__/
+*.pyc
+docs/figures/*.png
+web/data/chips/
+web/data/overviews/
+web/data/passes/
+web/data/*.geojson
+web/data/manifest.json
+web/data/bbox.json
+!web/data/results.json

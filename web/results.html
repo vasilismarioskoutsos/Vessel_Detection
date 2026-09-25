@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Results — Aegean Vessel Viewer</title>
+<meta name="description" content="Measured performance of the Sentinel-1 ship detector, with the cells that have not been measured yet left empty.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="top">
+  <span class="brand">AEGEAN VESSEL VIEWER</span>
+  <span class="brand-sub">Sentinel-1 radar ship detection</span>
+  <nav aria-label="Sections">
+    <a href="index.html">Map</a>
+    <a href="results.html" aria-current="page">Results</a>
+    <a href="method.html">Method</a>
+  </nav>
+  <span class="spacer"></span>
+  <a href="https://github.com/vasilismarioskoutsos/Vessel_Detection" style="font-size:13px;text-decoration:none;color:var(--text-2)">Source</a>
+</header>
+
+<main class="page">
+  <h1>Results</h1>
+  <p class="lede">Every number here comes from a held-out split, measured with the same code that runs in production. Where a measurement has not been made yet the cell is empty, rather than filled with an estimate.</p>
+
+  <div class="card" id="pending-banner" style="border-color:var(--warn-line);background:var(--warn-bg);margin-bottom:20px" hidden>
+    <div style="font-size:13px;font-weight:600;color:var(--unmatched);margin-bottom:4px">Training not finished</div>
+    <div style="font-size:13px;line-height:1.6">Detector metrics fill in once the first full run completes. The stride study needs no model and is already final.</div>
+  </div>
+
+  <div class="grid-2">
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Output stride study</h2>
+        <span class="badge final">Final</span>
+      </div>
+      <p>Labels encoded into target maps, then decoded straight back. No model involved, so this isolates the target format alone. 400 objects, 30&nbsp;% of them placed within 3&ndash;12&nbsp;px of a neighbour to imitate an anchorage.</p>
+      <table class="data">
+        <thead><tr><th>Stride</th><th class="num">Recall</th><th class="num">F1</th><th class="num">Length MAE</th><th class="num">Cell</th></tr></thead>
+        <tbody id="t-stride"></tbody>
+      </table>
+      <p class="note blue">Stride 2 was chosen. At stride 8 neighbouring ships collapse into one cell and 2.75&nbsp;% of them are lost before the model sees the data. Stride 1 costs four times the memory for 0.0013 F1.</p>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Detector comparison</h2>
+        <span class="badge pending" id="b-det">Pending first run</span>
+      </div>
+      <p>All three scored on the same held-out locations, matched within 200&nbsp;m, thresholds tuned on a separate split.</p>
+      <table class="data">
+        <thead><tr><th>Method</th><th class="num">Precision</th><th class="num">Recall</th><th class="num">F1</th><th class="num">s/scene</th></tr></thead>
+        <tbody id="t-det"></tbody>
+      </table>
+      <p class="note">Two splits are reported side by side: locations held out, and the competition-style split where the same harbours appear in training and test. The gap between them is the honest measure.</p>
+    </section>
+  </div>
+
+  <div class="grid-2">
+    <section class="card">
+      <h2>Recall by vessel length</h2>
+      <p>At 10&nbsp;m pixels with roughly 20&nbsp;m true resolution, small craft are the hard case &mdash; and in the Aegean they are also the most common.</p>
+      <svg viewBox="0 0 620 186" role="img" style="display:block;width:100%">
+        <title>Recall by vessel length</title>
+        <desc id="rc-desc">Five length bands; bars appear once the model has been evaluated.</desc>
+        <path d="M54 12V150H610" stroke="#27313D" stroke-width="1" fill="none"/>
+        <g stroke="#1C2530" stroke-width="1"><path d="M54 116H610M54 82H610M54 48H610M54 12H610"/></g>
+        <g fill="#6D7E8F" font-family="IBM Plex Mono, monospace" font-size="10" text-anchor="end">
+          <text x="46" y="154">0</text><text x="46" y="120">25</text><text x="46" y="86">50</text><text x="46" y="52">75</text><text x="46" y="16">100</text>
+        </g>
+        <g id="rc-bars"></g>
+        <g fill="#9CACBC" font-family="IBM Plex Sans, sans-serif" font-size="11" text-anchor="middle" id="rc-labels"></g>
+        <text x="54" y="182" fill="#6D7E8F" font-family="IBM Plex Sans, sans-serif" font-size="10">recall %</text>
+      </svg>
+    </section>
+
+    <section class="card">
+      <h2>Ablations</h2>
+      <p>Each is one switch in the config, run on a smaller encoder so the table can be filled in a weekend rather than a fortnight.</p>
+      <ul class="plain" id="t-abl"></ul>
+    </section>
+  </div>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>False-alarm modes the pipeline has to survive</h2>
+      <span style="font-size:12px;color:var(--text-3)">drawn from the physics, not from model output</span>
+    </div>
+    <div class="grid-2" style="margin:14px 0 0;gap:18px">
+      <figure style="margin:0;display:flex;gap:13px;align-items:flex-start">
+        <svg width="82" height="82" viewBox="0 0 82 82" role="img" style="flex-shrink:0;border-radius:4px"><title>Sidelobe cross</title><desc>A bright target with a cross-shaped streak.</desc><rect width="82" height="82" fill="#080C11"/><path d="M41 14v54M14 41h54" stroke="#C9A878" stroke-width="2" opacity=".75" fill="none"/><circle cx="41" cy="41" r="7" fill="#FBEBCE"/><rect x=".5" y=".5" width="81" height="81" fill="none" stroke="#35424F"/></svg>
+        <div><figcaption style="font-size:13px;font-weight:500;margin-bottom:5px">Sidelobe cross</figcaption><p style="margin:0;font-size:12px;line-height:1.5;color:var(--text-2)">A very strong reflector streaks. Peak suppression keeps one detection instead of five.</p></div>
+      </figure>
+      <figure style="margin:0;display:flex;gap:13px;align-items:flex-start">
+        <svg width="82" height="82" viewBox="0 0 82 82" role="img" style="flex-shrink:0;border-radius:4px"><title>Azimuth ghost</title><desc>A bright target with a fainter copy offset to one side.</desc><rect width="82" height="82" fill="#080C11"/><circle cx="30" cy="41" r="7" fill="#FBEBCE"/><circle cx="62" cy="41" r="5" fill="#8A7A5E"/><path d="M39 41h14" stroke="#4A5B6B" stroke-width="1" stroke-dasharray="2 2" fill="none"/><rect x=".5" y=".5" width="81" height="81" fill="none" stroke="#35424F"/></svg>
+        <div><figcaption style="font-size:13px;font-weight:500;margin-bottom:5px">Azimuth ghost</figcaption><p style="margin:0;font-size:12px;line-height:1.5;color:var(--text-2)">A faint copy at a predictable offset. Checked against the brighter parent before publishing.</p></div>
+      </figure>
+      <figure style="margin:0;display:flex;gap:13px;align-items:flex-start">
+        <svg width="82" height="82" viewBox="0 0 82 82" role="img" style="flex-shrink:0;border-radius:4px"><title>Fish farm</title><desc>A regular grid of small bright dots.</desc><rect width="82" height="82" fill="#080C11"/><g fill="#D8C7A6"><circle cx="26" cy="24" r="3"/><circle cx="41" cy="24" r="3"/><circle cx="56" cy="24" r="3"/><circle cx="26" cy="41" r="3"/><circle cx="41" cy="41" r="3"/><circle cx="56" cy="41" r="3"/><circle cx="26" cy="58" r="3"/><circle cx="41" cy="58" r="3"/><circle cx="56" cy="58" r="3"/></g><rect x=".5" y=".5" width="81" height="81" fill="none" stroke="#35424F"/></svg>
+        <div><figcaption style="font-size:13px;font-weight:500;margin-bottom:5px">Fish farm</figcaption><p style="margin:0;font-size:12px;line-height:1.5;color:var(--text-2)">Greece has hundreds. Anything detected at the same spot across most passes becomes a structure, not a ship.</p></div>
+      </figure>
+      <figure style="margin:0;display:flex;gap:13px;align-items:flex-start">
+        <svg width="82" height="82" viewBox="0 0 82 82" role="img" style="flex-shrink:0;border-radius:4px"><title>Islet speckle</title><desc>A rocky shoreline with bright speckle along its edge.</desc><rect width="82" height="82" fill="#080C11"/><path d="M0 62l16-6 12 5 14-9 16 4 12-7 12 3v25H0z" fill="#22303E"/><g fill="#C9B894"><circle cx="18" cy="57" r="2"/><circle cx="43" cy="53" r="2.4"/><circle cx="63" cy="52" r="2"/></g><rect x=".5" y=".5" width="81" height="81" fill="none" stroke="#35424F"/></svg>
+        <div><figcaption style="font-size:13px;font-weight:500;margin-bottom:5px">Islet speckle</figcaption><p style="margin:0;font-size:12px;line-height:1.5;color:var(--text-2)">Thousands of rocks in the Aegean. A buffered coastline mask removes them before scoring.</p></div>
+      </figure>
+    </div>
+  </section>
+
+  <p style="font-size:12px;color:var(--text-3);margin-top:22px" id="gen-note"></p>
+</main>
+
+<script>
+(function () {
+  var FALLBACK = {
+    trained: false,
+    stride_study: [
+      { stride: 1, recall: 1.0, f1: 1.0, length_mae_px: 0.0, cell_m: 10 },
+      { stride: 2, recall: 0.9975, f1: 0.9987, length_mae_px: 0.036, cell_m: 20, chosen: true },
+      { stride: 4, recall: 0.9975, f1: 0.9987, length_mae_px: 0.036, cell_m: 40 },
+      { stride: 8, recall: 0.9725, f1: 0.9861, length_mae_px: 0.448, cell_m: 80, poor: true }
+    ],
+    detectors: [
+      { name: 'CFAR', note: 'adaptive threshold, no learning' },
+      { name: 'YOLO + SAHI', note: 'box detector, tiled inference' },
+      { name: 'CircleNet-lite', note: 'point detector, this project', chosen: true }
+    ],
+    recall_by_length: [
+      { band: '<15 m' }, { band: '15–30 m' }, { band: '30–60 m' },
+      { band: '60–120 m' }, { band: '>120 m' }
+    ],
+    ablations: [
+      { name: 'VV only vs VV + VH' }, { name: 'Raw length vs log length' },
+      { name: 'Label smoothing on the vessel head' }, { name: 'Flip test-time augmentation' },
+      { name: 'Held-out locations vs leaky split' }
+    ]
+  };
+  var $ = function (id) { return document.getElementById(id); };
+  var n = function (v, d) { return v == null ? '<span class="miss">—</span>' : Number(v).toFixed(d); };
+
+  function render(r) {
+    $('pending-banner').hidden = !!r.trained;
+    $('b-det').textContent = r.trained ? 'Measured' : 'Pending first run';
+    if (r.trained) $('b-det').className = 'badge final';
+
+    $('t-stride').innerHTML = (r.stride_study || []).map(function (s) {
+      var c = s.poor ? ' style="color:var(--unmatched)"' : '';
+      return '<tr' + (s.chosen ? ' class="pick"' : '') + '><td class="num" style="text-align:left">' +
+        s.stride + (s.chosen ? ' &larr;' : '') + '</td><td class="num"' + c + '>' + n(s.recall, 4) +
+        '</td><td class="num"' + c + '>' + n(s.f1, 4) + '</td><td class="num"' + c + '>' +
+        n(s.length_mae_px, 3) + ' px</td><td class="num" style="color:var(--text-3)">' +
+        (s.cell_m || '') + ' m</td></tr>';
+    }).join('');
+
+    $('t-det').innerHTML = (r.detectors || []).map(function (d) {
+      return '<tr' + (d.chosen ? ' class="pick"' : '') + '><td><div style="font-weight:500">' + d.name +
+        '</div><div style="font-size:11px;color:var(--text-3);margin-top:2px">' + (d.note || '') +
+        '</div></td><td class="num">' + n(d.precision, 3) + '</td><td class="num">' + n(d.recall, 3) +
+        '</td><td class="num">' + n(d.f1, 3) + '</td><td class="num">' + n(d.sec_per_scene, 0) + '</td></tr>';
+    }).join('');
+
+    var bands = r.recall_by_length || [];
+    var w = 68, gap = 43, x0 = 76, any = bands.some(function (b) { return b.recall != null; });
+    $('rc-bars').innerHTML = bands.map(function (b, i) {
+      var x = x0 + i * (w + gap);
+      if (b.recall == null) return '<rect x="' + x + '" y="30" width="' + w + '" height="120" fill="none" stroke="#2E3A46" stroke-width="1.2" stroke-dasharray="4 4"/>';
+      var h = Math.max(1, b.recall * 138);
+      return '<rect x="' + x + '" y="' + (150 - h) + '" width="' + w + '" height="' + h + '" fill="#5AA9DE"/>' +
+        '<text x="' + (x + w / 2) + '" y="' + (150 - h - 6) + '" fill="#9CACBC" font-family="IBM Plex Mono, monospace" font-size="10" text-anchor="middle">' +
+        Math.round(b.recall * 100) + '</text>';
+    }).join('') + (any ? '' :
+      '<text x="332" y="94" fill="#6D7E8F" font-family="IBM Plex Sans, sans-serif" font-size="12" text-anchor="middle">awaiting first evaluation run</text>');
+    $('rc-labels').innerHTML = bands.map(function (b, i) {
+      return '<text x="' + (x0 + i * (w + gap) + w / 2) + '" y="170">' + b.band + '</text>';
+    }).join('');
+
+    $('t-abl').innerHTML = (r.ablations || []).map(function (a) {
+      var v = a.delta_f1 == null ? '<span class="miss">—</span>'
+        : (a.delta_f1 > 0 ? '+' : '') + Number(a.delta_f1).toFixed(3);
+      return '<li><span style="flex-grow:1">' + a.name + '</span><span style="font-family:var(--mono)">' + v + '</span></li>';
+    }).join('');
+
+    $('gen-note').textContent = r.generated ? 'Generated ' + r.generated : '';
+  }
+
+  fetch('data/results.json', { cache: 'no-cache' })
+    .then(function (x) { return x.ok ? x.json() : FALLBACK; })
+    .catch(function () { return FALLBACK; })
+    .then(render);
+})();
+</script>
+</body>
+</html>
